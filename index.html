@@ -1,0 +1,869 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Genshin Weather Portal</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Noto+Serif+JP:wght@300;400;600&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --gold: #c8a96e;
+            --gold-bright: #eddbbb;
+            --paimon-blue: #011138;
+            --dark-bg: #0d1117;
+            --dark-mid: #1a1f35;
+            --dark-deep: #0f1729;
+            --text-primary: #ece5d8;
+            --text-secondary: rgba(236, 229, 216, 0.65);
+            --card-bg: rgba(26, 31, 53, 0.82);
+            --card-border: rgba(200, 169, 110, 0.28);
+            --glow: rgba(200, 169, 110, 0.35);
+            --transition: 0.9s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        body {
+            font-family: 'Noto Serif JP', 'Cinzel', serif;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 24px;
+            overflow: hidden;
+            position: relative;
+            background: linear-gradient(160deg, #0d1117 0%, #1a1f35 50%, #0f1729 100%);
+            transition: background var(--transition);
+        }
+
+        /* ============ BACKGROUND LAYERS ============ */
+        .bg-layer {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity var(--transition);
+            overflow: hidden;
+        }
+        .bg-layer.active { opacity: 1; }
+
+        /* Stars */
+        .star {
+            position: absolute;
+            background: #fff;
+            border-radius: 50%;
+            animation: twinkle 3s ease-in-out infinite;
+        }
+        @keyframes twinkle {
+            0%, 100% { opacity: 0.15; transform: scale(0.8); }
+            50% { opacity: 0.9; transform: scale(1.15); }
+        }
+
+        /* Sun — golden glow */
+        .sun-orb {
+            position: absolute;
+            width: 220px;
+            height: 220px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(237, 219, 187, 0.95) 0%, rgba(200, 169, 110, 0.5) 35%, transparent 70%);
+            top: -40px;
+            right: -30px;
+            filter: blur(6px);
+            animation: sunPulse 5s ease-in-out infinite;
+        }
+        @keyframes sunPulse {
+            0%, 100% { transform: scale(1); opacity: 0.9; }
+            50% { transform: scale(1.1); opacity: 1; }
+        }
+
+        /* Moon — pale silver */
+        .moon-orb {
+            position: absolute;
+            width: 160px;
+            height: 160px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(220, 230, 255, 0.9) 0%, rgba(180, 200, 240, 0.3) 40%, transparent 70%);
+            top: 30px;
+            right: 40px;
+            filter: blur(5px);
+            animation: moonPulse 7s ease-in-out infinite;
+        }
+        @keyframes moonPulse {
+            0%, 100% { opacity: 0.8; }
+            50% { opacity: 1; }
+        }
+
+        /* Rain */
+        .drop {
+            position: absolute;
+            width: 1.5px;
+            height: 80px;
+            background: linear-gradient(transparent, rgba(164, 213, 229, 0.6));
+            border-radius: 2px;
+            animation: fall linear infinite;
+        }
+        @keyframes fall {
+            from { transform: translateY(-120px); }
+            to { transform: translateY(calc(100vh + 120px)); }
+        }
+
+        /* Snow */
+        .flake {
+            position: absolute;
+            color: rgba(220, 235, 255, 0.85);
+            font-size: 12px;
+            animation: snowFall linear infinite;
+            user-select: none;
+        }
+        @keyframes snowFall {
+            from { transform: translateY(-40px) rotate(0deg); }
+            to { transform: translateY(calc(100vh + 40px)) rotate(360deg); }
+        }
+
+        /* Lightning */
+        .lightning {
+            position: absolute;
+            inset: 0;
+            background: rgba(200, 220, 255, 0.9);
+            opacity: 0;
+            animation: flash 6s infinite;
+        }
+        @keyframes flash {
+            0%, 91%, 95%, 100% { opacity: 0; }
+            92% { opacity: 0.3; }
+            93% { opacity: 0; }
+            94% { opacity: 0.2; }
+        }
+
+        /* Fog */
+        .fog {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(to bottom, rgba(100, 120, 150, 0.3), transparent 35%, transparent 65%, rgba(100, 120, 150, 0.3));
+            animation: fogMove 10s ease-in-out infinite alternate;
+        }
+        @keyframes fogMove {
+            from { transform: translateX(-15px); opacity: 0.7; }
+            to { transform: translateX(15px); opacity: 1; }
+        }
+
+        /* Floating particles — elemental motes */
+        .mote {
+            position: absolute;
+            width: 3px;
+            height: 3px;
+            border-radius: 50%;
+            background: var(--gold);
+            box-shadow: 0 0 8px var(--gold);
+            animation: floatMote linear infinite;
+            opacity: 0.4;
+        }
+        @keyframes floatMote {
+            from { transform: translateY(100vh) translateX(0); opacity: 0; }
+            10% { opacity: 0.5; }
+            90% { opacity: 0.5; }
+            to { transform: translateY(-20px) translateX(40px); opacity: 0; }
+        }
+
+        /* ============ MAIN CARD ============ */
+        .weather-card {
+            position: relative;
+            z-index: 2;
+            width: 100%;
+            max-width: 460px;
+            background: var(--card-bg);
+            backdrop-filter: blur(28px);
+            -webkit-backdrop-filter: blur(28px);
+            border: 1px solid var(--card-border);
+            border-radius: 4px;
+            padding: 36px 32px;
+            box-shadow:
+                0 30px 80px rgba(0, 0, 0, 0.5),
+                0 0 60px rgba(200, 169, 110, 0.08),
+                inset 0 1px 0 rgba(237, 219, 187, 0.1);
+            color: var(--text-primary);
+            transition: all var(--transition);
+            animation: cardIn 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* Gold corner ornaments */
+        .weather-card::before,
+        .weather-card::after {
+            content: '';
+            position: absolute;
+            width: 24px;
+            height: 24px;
+            border-color: var(--gold);
+            border-style: solid;
+            opacity: 0.6;
+            pointer-events: none;
+        }
+        .weather-card::before {
+            top: 8px;
+            left: 8px;
+            border-width: 2px 0 0 2px;
+        }
+        .weather-card::after {
+            bottom: 8px;
+            right: 8px;
+            border-width: 0 2px 2px 0;
+        }
+
+        @keyframes cardIn {
+            from { opacity: 0; transform: translateY(30px) scale(0.97); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        /* Header */
+        .header {
+            text-align: center;
+            margin-bottom: 28px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid rgba(200, 169, 110, 0.2);
+            position: relative;
+        }
+
+        .header-ornament {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            margin-bottom: 10px;
+        }
+
+        .header-ornament::before,
+        .header-ornament::after {
+            content: '';
+            height: 1px;
+            width: 40px;
+            background: linear-gradient(90deg, transparent, var(--gold), transparent);
+        }
+
+        .header-icon {
+            font-size: 1.2rem;
+            color: var(--gold);
+            text-shadow: 0 0 12px var(--glow);
+        }
+
+        h1 {
+            font-family: 'Cinzel', serif;
+            font-size: 1.15rem;
+            font-weight: 600;
+            color: var(--gold-bright);
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            text-shadow: 0 0 20px var(--glow);
+            margin-bottom: 4px;
+        }
+
+        .subtitle {
+            font-size: 0.65rem;
+            color: var(--text-secondary);
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            font-family: 'Cinzel', serif;
+        }
+
+        /* Search */
+        .search-box {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 24px;
+        }
+
+        input {
+            flex: 1;
+            padding: 14px 18px;
+            font-family: 'Noto Serif JP', serif;
+            font-size: 0.9rem;
+            color: var(--text-primary);
+            background: rgba(13, 17, 23, 0.6);
+            border: 1px solid rgba(200, 169, 110, 0.22);
+            border-radius: 2px;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+
+        input::placeholder {
+            color: rgba(236, 229, 216, 0.35);
+            font-style: italic;
+        }
+
+        input:focus {
+            border-color: var(--gold);
+            background: rgba(13, 17, 23, 0.8);
+            box-shadow: 0 0 0 3px rgba(200, 169, 110, 0.1), 0 0 20px rgba(200, 169, 110, 0.06);
+        }
+
+        button {
+            padding: 14px 20px;
+            font-family: 'Cinzel', serif;
+            font-size: 0.75rem;
+            font-weight: 600;
+            letter-spacing: 2px;
+            color: var(--dark-bg);
+            background: linear-gradient(135deg, var(--gold-bright), var(--gold));
+            border: none;
+            border-radius: 2px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+        }
+
+        button:hover {
+            filter: brightness(1.12);
+            box-shadow: 0 0 24px rgba(200, 169, 110, 0.4);
+            transform: translateY(-1px);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        /* Result */
+        #weather-result { display: none; }
+        #weather-result.active {
+            display: block;
+            animation: reveal 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        @keyframes reveal {
+            from { opacity: 0; transform: translateY(14px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .weather-hero {
+            text-align: center;
+            padding: 8px 0 22px;
+        }
+
+        .icon-wrap {
+            width: 100px;
+            height: 100px;
+            margin: 0 auto 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .icon-wrap::before {
+            content: '';
+            position: absolute;
+            inset: -8px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(200, 169, 110, 0.12), transparent 70%);
+            animation: iconGlow 4s ease-in-out infinite;
+        }
+
+        @keyframes iconGlow {
+            0%, 100% { transform: scale(0.9); opacity: 0.5; }
+            50% { transform: scale(1.1); opacity: 0.9; }
+        }
+
+        .weather-icon {
+            width: 90px;
+            height: 90px;
+            filter: drop-shadow(0 4px 20px rgba(200, 169, 110, 0.3));
+            position: relative;
+            z-index: 1;
+        }
+
+        .temperature {
+            font-family: 'Cinzel', serif;
+            font-size: 3.8rem;
+            font-weight: 300;
+            color: var(--gold-bright);
+            line-height: 1;
+            letter-spacing: -2px;
+            margin-bottom: 6px;
+            text-shadow: 0 0 40px rgba(200, 169, 110, 0.25);
+        }
+
+        .temperature span {
+            font-size: 1.6rem;
+            vertical-align: top;
+            font-weight: 400;
+            opacity: 0.7;
+        }
+
+        .city-name {
+            font-family: 'Cinzel', serif;
+            font-size: 1.4rem;
+            font-weight: 600;
+            letter-spacing: 1px;
+            color: var(--text-primary);
+            margin-bottom: 2px;
+        }
+
+        .country {
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            margin-bottom: 12px;
+        }
+
+        .description {
+            display: inline-block;
+            font-size: 0.85rem;
+            font-style: italic;
+            color: var(--gold);
+            letter-spacing: 0.5px;
+            padding: 6px 18px;
+            border-top: 1px solid rgba(200, 169, 110, 0.2);
+            border-bottom: 1px solid rgba(200, 169, 110, 0.2);
+            text-transform: capitalize;
+        }
+
+        /* Details */
+        .details {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-top: 24px;
+        }
+
+        .detail-item {
+            background: rgba(13, 17, 23, 0.4);
+            border: 1px solid rgba(200, 169, 110, 0.12);
+            border-radius: 2px;
+            padding: 14px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            transition: all 0.3s ease;
+        }
+
+        .detail-item:hover {
+            border-color: rgba(200, 169, 110, 0.35);
+            background: rgba(13, 17, 23, 0.6);
+            box-shadow: 0 0 20px rgba(200, 169, 110, 0.06);
+        }
+
+        .detail-icon {
+            font-size: 1.3rem;
+            line-height: 1;
+            flex-shrink: 0;
+            filter: grayscale(0.3) sepia(0.2);
+        }
+
+        .detail-text {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+            min-width: 0;
+        }
+
+        .detail-label {
+            font-size: 0.6rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            font-family: 'Cinzel', serif;
+        }
+
+        .detail-value {
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: var(--gold-bright);
+            white-space: nowrap;
+        }
+
+        /* Messages */
+        .error-message,
+        .loading {
+            padding: 16px;
+            border-radius: 2px;
+            font-size: 0.8rem;
+            text-align: center;
+            margin-top: 16px;
+            font-style: italic;
+        }
+
+        .error-message {
+            background: rgba(150, 40, 40, 0.18);
+            border: 1px solid rgba(200, 100, 100, 0.3);
+            color: #e8b4b4;
+        }
+
+        .loading {
+            background: rgba(200, 169, 110, 0.06);
+            border: 1px solid rgba(200, 169, 110, 0.15);
+            color: var(--text-secondary);
+            animation: pulse 1.8s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.5; }
+            50% { opacity: 1; }
+        }
+
+        /* Elemental theme tints */
+        body.theme-clear-day {
+            background: linear-gradient(160deg, #1a1510 0%, #2a2215 40%, #1a1f35 100%);
+        }
+        body.theme-clear-night {
+            background: linear-gradient(160deg, #0a0e1a 0%, #0d1425 50%, #060a12 100%);
+        }
+        body.theme-clouds {
+            background: linear-gradient(160deg, #141820 0%, #1c222e 50%, #0f1318 100%);
+        }
+        body.theme-rain {
+            background: linear-gradient(160deg, #0a1620 0%, #10202e 50%, #081018 100%);
+        }
+        body.theme-thunderstorm {
+            background: linear-gradient(160deg, #0a0a14 0%, #12122a 50%, #080810 100%);
+        }
+        body.theme-snow {
+            background: linear-gradient(160deg, #141a22 0%, #1a2430 50%, #0e141a 100%);
+        }
+        body.theme-mist {
+            background: linear-gradient(160deg, #12161c 0%, #1a2028 50%, #0e1218 100%);
+        }
+
+        /* Responsive */
+        @media (max-width: 480px) {
+            .weather-card {
+                padding: 28px 20px;
+            }
+            .temperature {
+                font-size: 3rem;
+            }
+            h1 {
+                font-size: 0.95rem;
+            }
+            .city-name {
+                font-size: 1.2rem;
+            }
+            .detail-item {
+                padding: 12px 10px;
+            }
+        }
+    </style>
+</head>
+<body class="theme-clear-night">
+
+    <!-- ============ BACKGROUND LAYERS ============ -->
+    <div class="bg-layer" id="layer-clear-day">
+        <div class="sun-orb"></div>
+        <div class="motes" id="motes-sun"></div>
+    </div>
+
+    <div class="bg-layer" id="layer-clear-night">
+        <div class="moon-orb"></div>
+        <div class="stars" id="stars"></div>
+        <div class="motes" id="motes-night"></div>
+    </div>
+
+    <div class="bg-layer" id="layer-clouds">
+        <div class="motes" id="motes-cloud"></div>
+    </div>
+
+    <div class="bg-layer" id="layer-rain">
+        <div class="rain" id="rain"></div>
+        <div class="motes" id="motes-rain"></div>
+    </div>
+
+    <div class="bg-layer" id="layer-thunderstorm">
+        <div class="rain" id="rain-storm"></div>
+        <div class="lightning"></div>
+    </div>
+
+    <div class="bg-layer" id="layer-snow">
+        <div class="snow" id="snow"></div>
+    </div>
+
+    <div class="bg-layer" id="layer-mist">
+        <div class="fog"></div>
+    </div>
+
+    <!-- ============ MAIN CARD ============ -->
+    <div class="weather-card">
+        <div class="header">
+            <div class="header-ornament">
+                <span class="header-icon">✦</span>
+            </div>
+            <h1>Weather</h1>
+            <div class="subtitle">Live Forecast</div>
+        </div>
+
+        <div class="search-box">
+            <input type="text" id="city-input" placeholder="Search a city..." aria-label="City name">
+            <button id="search-btn">Seek</button>
+        </div>
+
+        <div id="loading" class="loading" style="display: none;">Consulting the elements...</div>
+        <div id="error-message" class="error-message" style="display: none;"></div>
+
+        <div id="weather-result">
+            <div class="weather-hero">
+                <div class="icon-wrap">
+                    <img class="weather-icon" id="weather-icon" src="" alt="Weather icon">
+                </div>
+                <div class="temperature" id="temperature"></div>
+                <div class="city-name" id="city-name"></div>
+                <div class="country" id="country"></div>
+                <div class="description" id="description"></div>
+            </div>
+
+            <div class="details">
+                <div class="detail-item">
+                    <div class="detail-icon">🌡️</div>
+                    <div class="detail-text">
+                        <span class="detail-label">Feels Like</span>
+                        <span class="detail-value" id="feels-like"></span>
+                    </div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-icon">💧</div>
+                    <div class="detail-text">
+                        <span class="detail-label">Humidity</span>
+                        <span class="detail-value" id="humidity"></span>
+                    </div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-icon">🌬️</div>
+                    <div class="detail-text">
+                        <span class="detail-label">Wind</span>
+                        <span class="detail-value" id="wind-speed"></span>
+                    </div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-icon">📊</div>
+                    <div class="detail-text">
+                        <span class="detail-label">Pressure</span>
+                        <span class="detail-value" id="pressure"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ============================================
+        // CONFIGURATION
+        // Replace with your OpenWeatherMap API key:
+        // https://home.openweathermap.org/api_keys
+        // ============================================
+        const API_KEY = 'b092836470d3472339e78e90bdb8e69e';
+        const BASE_URL = 'https://api.openweathermap.org/data/2.5/weather';
+
+        // ---------- DOM ----------
+        const cityInput = document.getElementById('city-input');
+        const searchBtn = document.getElementById('search-btn');
+        const weatherResult = document.getElementById('weather-result');
+        const errorMessage = document.getElementById('error-message');
+        const loading = document.getElementById('loading');
+
+        const cityNameEl = document.getElementById('city-name');
+        const countryEl = document.getElementById('country');
+        const tempEl = document.getElementById('temperature');
+        const descEl = document.getElementById('description');
+        const iconEl = document.getElementById('weather-icon');
+        const feelsLikeEl = document.getElementById('feels-like');
+        const humidityEl = document.getElementById('humidity');
+        const windEl = document.getElementById('wind-speed');
+        const pressureEl = document.getElementById('pressure');
+
+        const layers = {
+            clearDay: document.getElementById('layer-clear-day'),
+            clearNight: document.getElementById('layer-clear-night'),
+            clouds: document.getElementById('layer-clouds'),
+            rain: document.getElementById('layer-rain'),
+            thunderstorm: document.getElementById('layer-thunderstorm'),
+            snow: document.getElementById('layer-snow'),
+            mist: document.getElementById('layer-mist'),
+        };
+
+        // ---------- PARTICLES ----------
+        let built = false;
+
+        function buildParticles() {
+            if (built) return;
+            built = true;
+
+            // Stars
+            const starsEl = document.getElementById('stars');
+            for (let i = 0; i < 70; i++) {
+                const s = document.createElement('div');
+                s.className = 'star';
+                const size = Math.random() * 2.5 + 1;
+                s.style.width = size + 'px';
+                s.style.height = size + 'px';
+                s.style.left = Math.random() * 100 + '%';
+                s.style.top = Math.random() * 100 + '%';
+                s.style.animationDelay = (Math.random() * 3) + 's';
+                s.style.animationDuration = (2 + Math.random() * 3) + 's';
+                starsEl.appendChild(s);
+            }
+
+            // Elemental motes (golden particles)
+            const makeMotes = (id, count) => {
+                const container = document.getElementById(id);
+                if (!container) return;
+                for (let i = 0; i < count; i++) {
+                    const m = document.createElement('div');
+                    m.className = 'mote';
+                    m.style.left = Math.random() * 100 + '%';
+                    m.style.animationDuration = (12 + Math.random() * 15) + 's';
+                    m.style.animationDelay = (-Math.random() * 20) + 's';
+                    container.appendChild(m);
+                }
+            };
+            makeMotes('motes-sun', 12);
+            makeMotes('motes-night', 15);
+            makeMotes('motes-cloud', 8);
+            makeMotes('motes-rain', 10);
+
+            // Rain
+            const makeRain = (id, count, speed) => {
+                const el = document.getElementById(id);
+                if (!el) return;
+                for (let i = 0; i < count; i++) {
+                    const d = document.createElement('div');
+                    d.className = 'drop';
+                    d.style.left = Math.random() * 100 + '%';
+                    d.style.height = (60 + Math.random() * 60) + 'px';
+                    d.style.animationDuration = (speed + Math.random() * 0.5) + 's';
+                    d.style.animationDelay = (-Math.random() * 2) + 's';
+                    d.style.opacity = 0.3 + Math.random() * 0.4;
+                    el.appendChild(d);
+                }
+            };
+            makeRain('rain', 45, 0.7);
+            makeRain('rain-storm', 70, 0.5);
+
+            // Snow
+            const snowEl = document.getElementById('snow');
+            for (let i = 0; i < 50; i++) {
+                const f = document.createElement('div');
+                f.className = 'flake';
+                f.textContent = '❄';
+                f.style.left = Math.random() * 100 + '%';
+                f.style.fontSize = (8 + Math.random() * 12) + 'px';
+                f.style.opacity = 0.4 + Math.random() * 0.5;
+                f.style.animationDuration = (6 + Math.random() * 8) + 's';
+                f.style.animationDelay = (-Math.random() * 8) + 's';
+                snowEl.appendChild(f);
+            }
+        }
+
+        buildParticles();
+
+        // ---------- THEME ----------
+        function getTheme(data) {
+            const main = data.weather[0].main.toLowerCase();
+            const isNight = data.weather[0].icon.endsWith('n');
+
+            if (main === 'clear') return isNight ? 'clear-night' : 'clear-day';
+            if (main === 'clouds') return 'clouds';
+            if (main === 'rain' || main === 'drizzle') return 'rain';
+            if (main === 'thunderstorm') return 'thunderstorm';
+            if (main === 'snow') return 'snow';
+            if (['mist','fog','haze','smoke','dust','sand','ash','squall','tornado'].includes(main)) return 'mist';
+            return isNight ? 'clear-night' : 'clear-day';
+        }
+
+        function applyTheme(theme) {
+            document.body.className = 'theme-' + theme;
+            Object.values(layers).forEach(l => l.classList.remove('active'));
+
+            switch (theme) {
+                case 'clear-day': layers.clearDay.classList.add('active'); break;
+                case 'clear-night': layers.clearNight.classList.add('active'); break;
+                case 'clouds': layers.clouds.classList.add('active'); break;
+                case 'rain': layers.rain.classList.add('active'); break;
+                case 'thunderstorm': layers.thunderstorm.classList.add('active'); break;
+                case 'snow': layers.snow.classList.add('active'); break;
+                case 'mist': layers.mist.classList.add('active'); break;
+                default: layers.clearNight.classList.add('active');
+            }
+        }
+
+        // ---------- FETCH ----------
+        function showLoading() {
+            loading.style.display = 'block';
+            errorMessage.style.display = 'none';
+            weatherResult.classList.remove('active');
+            searchBtn.disabled = true;
+        }
+        function hideLoading() {
+            loading.style.display = 'none';
+            searchBtn.disabled = false;
+        }
+        function showError(msg) {
+            errorMessage.textContent = msg;
+            errorMessage.style.display = 'block';
+            weatherResult.classList.remove('active');
+        }
+
+        async function fetchWeather(city) {
+            if (!city.trim()) { showError('Please enter a city name.'); return; }
+            if (API_KEY === 'YOUR_API_KEY_HERE') {
+                showError('API key missing. Replace "YOUR_API_KEY_HERE" with your OpenWeatherMap key.');
+                return;
+            }
+
+            showLoading();
+            try {
+                const url = `${BASE_URL}?q=${encodeURIComponent(city)}&appid=${API_KEY}&units=metric`;
+                const res = await fetch(url);
+
+                if (!res.ok) {
+                    if (res.status === 404) throw new Error('City not found. Check the spelling.');
+                    if (res.status === 401) throw new Error('Invalid API key. Verify your OpenWeatherMap key.');
+                    if (res.status === 429) throw new Error('Too many requests. Wait a moment.');
+                    throw new Error('Failed to fetch weather data.');
+                }
+
+                const data = await res.json();
+                displayWeather(data);
+            } catch (err) {
+                showError(err.message);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        function displayWeather(data) {
+            cityNameEl.textContent = data.name;
+            countryEl.textContent = data.sys.country;
+            tempEl.innerHTML = `${Math.round(data.main.temp)}<span>°C</span>`;
+            descEl.textContent = data.weather[0].description;
+
+            iconEl.src = `https://openweathermap.org/img/wn/${data.weather[0].icon}@4x.png`;
+            iconEl.alt = data.weather[0].description;
+
+            feelsLikeEl.textContent = `${Math.round(data.main.feels_like)}°C`;
+            humidityEl.textContent = `${data.main.humidity}%`;
+            windEl.textContent = `${(data.wind.speed * 3.6).toFixed(1)} km/h`;
+            pressureEl.textContent = `${data.main.pressure} hPa`;
+
+            applyTheme(getTheme(data));
+            weatherResult.classList.add('active');
+        }
+
+        // ---------- EVENTS ----------
+        searchBtn.addEventListener('click', () => fetchWeather(cityInput.value));
+        cityInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') fetchWeather(cityInput.value);
+        });
+
+        applyTheme('clear-night');
+    </script>
+</body>
+</html>
